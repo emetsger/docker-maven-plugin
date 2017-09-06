@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import io.fabric8.maven.docker.config.ImageConfiguration;
 import io.fabric8.maven.docker.config.RestartPolicy;
@@ -116,7 +117,15 @@ public class DockerComposeConfigHandlerTest {
 
 
      void validateRunConfiguration(RunImageConfiguration runConfig) {
-        assertEquals(a("/foo", "/tmp:/tmp"), runConfig.getVolumeConfiguration().getBind());
+        final int bindCnt = 4;
+        assertEquals("Expected " + bindCnt + " bind statements",
+                bindCnt, runConfig.getVolumeConfiguration().getBind().size());
+        assertEquals(a("/foo", "/tmp:/tmp:rw", "namedvolume:/volume:ro"),
+                runConfig.getVolumeConfiguration().getBind().subList(0, bindCnt - 1));
+        System.err.println(">>>> " + runConfig.getVolumeConfiguration().getBind().get(bindCnt - 1));
+        assertTrue(runConfig.getVolumeConfiguration().getBind().get(bindCnt - 1).matches("^([A-Z]|/).*compose/version:.*"));
+        assertTrue(new File(runConfig.getVolumeConfiguration().getBind().get(bindCnt - 1).split(":")[0]).exists());
+
         assertEquals(a("CAP"), runConfig.getCapAdd());
         assertEquals(a("CAP"), runConfig.getCapDrop());
         assertEquals("command.sh", runConfig.getCmd().getShell());
