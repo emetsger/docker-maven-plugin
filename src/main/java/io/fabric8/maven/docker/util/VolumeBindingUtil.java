@@ -61,7 +61,17 @@ public class VolumeBindingUtil {
     /**
      * The current runtime platform file separator, '/' for *nix, '\' for Windows
      */
-    private static final String SEP = System.getProperty("file.separator");
+    private static final String RUNTIME_SEP = System.getProperty("file.separator");
+
+    /**
+     * Windows file separator: '\'
+     */
+    private static final String WINDOWS_SEP = "\\";
+
+    /**
+     * Unix file separator '/'
+     */
+    private static final String UNIX_SEP = "/";
 
     /**
      * Matches a windows drive letter followed by a colon and backwards slash.  For example, will match:
@@ -263,16 +273,16 @@ public class VolumeBindingUtil {
         // java.io.File considers Windows paths to be absolute _only_ if they start with a drive letter.  That is,
         // a Windows path '\foo\bar\baz' is _not_ absolute.  This block differs from java.io.File in that it considers
         // Windows paths to be absolute if they begin with the file separator or a drive letter
-        if (candidatePath.startsWith(SEP) || WINDOWS_DRIVE_PATTERN.matcher(candidatePath).matches()) {
+        if (candidatePath.startsWith(RUNTIME_SEP) || WINDOWS_DRIVE_PATTERN.matcher(candidatePath).matches()) {
             return false;
         }
 
         // './' or '../'
-        if (candidatePath.startsWith(DOT + SEP) || candidatePath.startsWith(DOT + DOT + SEP)) {
+        if (candidatePath.startsWith(DOT + RUNTIME_SEP) || candidatePath.startsWith(DOT + DOT + RUNTIME_SEP)) {
             return true;
         }
 
-        if (candidatePath.contains(SEP)) {
+        if (candidatePath.contains(UNIX_SEP) || candidatePath.contains(WINDOWS_SEP)) {
             return true;
         }
 
@@ -307,7 +317,7 @@ public class VolumeBindingUtil {
         }
 
         // '~/'
-        if (userHomePath.startsWith(TILDE + SEP)) {
+        if (userHomePath.startsWith(TILDE + RUNTIME_SEP)) {
             return userHomePath.substring(2);
         }
 
