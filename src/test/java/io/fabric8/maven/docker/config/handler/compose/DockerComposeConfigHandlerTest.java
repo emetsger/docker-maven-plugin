@@ -6,11 +6,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 import io.fabric8.maven.docker.config.ImageConfiguration;
 import io.fabric8.maven.docker.config.RestartPolicy;
@@ -156,6 +154,15 @@ public class DockerComposeConfigHandlerTest {
         assertEquals(1, policy.getRetry());
     }
 
+    /**
+     * Validates the {@link RunVolumeConfiguration} by asserting that:
+     * <ul>
+     *     <li>absolute host paths remain absolute</li>
+     *     <li>access controls are preserved</li>
+     *     <li>relative host paths are resolved to absolute paths correctly</li>
+     * </ul>
+     * @param toValidate the {@code RunVolumeConfiguration} being validated
+     */
     void validateVolumeConfig(RunVolumeConfiguration toValidate) {
         final int expectedBindCnt = 4;
         final List<String> binds = toValidate.getBind();
@@ -163,23 +170,45 @@ public class DockerComposeConfigHandlerTest {
 
         assertEquals(a("/foo", "/tmp:/tmp:rw", "namedvolume:/volume:ro"), binds.subList(0, expectedBindCnt - 1));
 
-        String relativeVolumePath = binds.get(expectedBindCnt - 1);
-        validateRelativeVolumeBindString(relativeVolumePath);
+        // The docker-compose.yml used for testing contains a volume binding string that uses relative paths in the
+        // host portion.  Insure that the relative portion has been resolved properly.
+        String relativeBindString = binds.get(expectedBindCnt - 1);
+        assertHostBindingExists(relativeBindString);
     }
 
-    private void validateRelativeVolumeBindString(String relativeBindString) {
-        System.err.println(">>>> " + relativeBindString);
+    /**
+     * Parses the supplied binding string for the host portion, and insures the host portion actually exists on the
+     * filesystem.  Note this method is designed to accommodate both Windows-style and *nix-style absolute paths.
+     * <p>
+     * The {@code docker-compose.yml} used for testing contains volume binding strings which are <em>relative</em>.
+     * When the {@link RunVolumeConfiguration} is built, relative paths in the host portion of the binding string are
+     * resolved to absolute paths.  This method expects a binding string that has already had its relative paths
+     * <em>resolved</em> to absolute paths.  It parses the host portion of the binding string, and asserts that the path
+     * exists on the system.
+     * </p>
+     *
+     *
+     * @param bindString a volume binding string that contains a host portion that is expected to exist on the local
+     *                   system
+     */
+    private void assertHostBindingExists(String bindString) {
+        System.err.println(">>>> " + bindString);
 
-        // A regex that matches both windows platform paths and unix style paths:
+        // Extract the host-portion of the volume binding string, accounting for windows platform paths and unix style
+        // paths.  For example:
         // C:\Users\foo\Documents\workspaces\docker-maven-plugin\target\test-classes\compose\version:/tmp/version
         // and
         // /Users/foo/workspaces/docker-maven-plugin/target/test-classes/compose/version:/tmp/version
 
-        String regex = "^([A-Z]|/).*compose[\\\\|/]version:.*";
-
-        assertTrue(relativeBindString.matches(regex));
-        File file = new File(relativeBindString.split(":")[0]);
-        assertTrue(file + " does not exist!", file.exists());
+        File file = null;
+        if (bindString.indexOf(":") > 1) {
+            // a unix-style path
+            file = new File(bindString.substring(0, bindString.indexOf(":")));
+        } else {
+            // a windows-style path with a drive letter
+            file = new File(bindString.substring(0, bindString.indexOf(":", 2)));
+        }
+        assertTrue("The file '" + file + "' parsed from the volume binding string '" + bindString + "' does not exist!", file.exists());
     }
 
     protected void validateEnv(Map<String, String> env) {
@@ -192,9 +221,4 @@ public class DockerComposeConfigHandlerTest {
         return Arrays.asList(args);
     }
 
-    @Test
-    public void testRegex() throws Exception {
-        String toMatch = "C:\\Users\\khanson5\\Documents\\GitHub\\docker-maven-plugin-karen\\target\\test-classes\\compose\\version:/tmp/version";
-        assertTrue(toMatch.matches("^([A-Z]|/).*compose[\\\\|/]version:.*"));
-    }
 }
