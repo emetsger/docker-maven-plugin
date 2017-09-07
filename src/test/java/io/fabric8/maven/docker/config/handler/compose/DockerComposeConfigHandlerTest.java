@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 import io.fabric8.maven.docker.config.ImageConfiguration;
 import io.fabric8.maven.docker.config.RestartPolicy;
 import io.fabric8.maven.docker.config.RunImageConfiguration;
+import io.fabric8.maven.docker.config.RunVolumeConfiguration;
 import io.fabric8.maven.docker.config.handler.ExternalConfigHandlerException;
 import mockit.Expectations;
 import mockit.Injectable;
@@ -117,14 +118,8 @@ public class DockerComposeConfigHandlerTest {
 
 
      void validateRunConfiguration(RunImageConfiguration runConfig) {
-        final int bindCnt = 4;
-        assertEquals("Expected " + bindCnt + " bind statements",
-                bindCnt, runConfig.getVolumeConfiguration().getBind().size());
-        assertEquals(a("/foo", "/tmp:/tmp:rw", "namedvolume:/volume:ro"),
-                runConfig.getVolumeConfiguration().getBind().subList(0, bindCnt - 1));
-        System.err.println(">>>> " + runConfig.getVolumeConfiguration().getBind().get(bindCnt - 1));
-        assertTrue(runConfig.getVolumeConfiguration().getBind().get(bindCnt - 1).matches("^([A-Z]|/).*compose/version:.*"));
-        assertTrue(new File(runConfig.getVolumeConfiguration().getBind().get(bindCnt - 1).split(":")[0]).exists());
+
+        validateVolumeConfig(runConfig.getVolumeConfiguration());
 
         assertEquals(a("CAP"), runConfig.getCapAdd());
         assertEquals(a("CAP"), runConfig.getCapDrop());
@@ -156,6 +151,31 @@ public class DockerComposeConfigHandlerTest {
         assertEquals(1, policy.getRetry());
     }
 
+    void validateVolumeConfig(RunVolumeConfiguration toValidate) {
+        final int expectedBindCnt = 4;
+        final List<String> binds = toValidate.getBind();
+        assertEquals("Expected " + expectedBindCnt + " bind statements", expectedBindCnt, binds.size());
+
+        assertEquals(a("/foo", "/tmp:/tmp:rw", "namedvolume:/volume:ro"), binds.subList(0, expectedBindCnt - 1));
+
+        String relativeVolumePath = binds.get(expectedBindCnt - 1);
+        validateRelativeVolumeBindString(relativeVolumePath);
+    }
+
+    private void validateRelativeVolumeBindString(String relativeBindString) {
+        System.err.println(">>>> " + relativeBindString);
+
+        // A regex that matches both windows platform paths and unix style paths:
+        // C:\Users\foo\Documents\workspaces\docker-maven-plugin\docker-maven-plugin\target\test-classes\compose\version:/tmp/version
+        // and
+        // /Users/foo/workspaces/docker-maven-plugin/target/test-classes/compose/version:/tmp/version
+
+        String regex = "^([A-Z]|/).*compose[\\\\|/]version:.*";
+
+        assertTrue(relativeBindString.matches(regex));
+        assertTrue(new File(relativeBindString.split(":")[0]).exists());
+    }
+
     protected void validateEnv(Map<String, String> env) {
         assertEquals(2, env.size());
         assertEquals("name", env.get("NAME"));
@@ -164,5 +184,11 @@ public class DockerComposeConfigHandlerTest {
 
     protected List<String> a(String ... args) {
         return Arrays.asList(args);
+    }
+
+    @Test
+    public void testRegex() throws Exception {
+        String toMatch = "C:\\Users\\khanson5\\Documents\\GitHub\\docker-maven-plugin-karen\\docker-maven-plugin-karen\\target\\test-classes\\compose\\version:/tmp/version";
+        assertTrue(toMatch.matches("^([A-Z]|/).*compose[\\\\|/]version:.*"));
     }
 }
