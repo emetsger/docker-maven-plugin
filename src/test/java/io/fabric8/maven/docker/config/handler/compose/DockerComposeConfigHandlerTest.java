@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -101,7 +102,11 @@ public class DockerComposeConfigHandlerTest {
                 // provide a base directory that actually exists, so that relative paths referenced by the
                 // docker-compose.yaml file can be resolved
                 // (note: this is different than the directory returned by 'input.getParent()')
-                put("basedir", this.getClass().getResource("/").getFile());
+                URL baseResource = this.getClass().getResource("/");
+                String baseDir = baseResource.getFile();
+                assertNotNull("Classpath resource '/' does not have a File: '" + baseResource, baseDir);
+                assertTrue("Classpath resource '/' does not resolve to a File: '" + new File(baseDir) + "' does not exist.", new File(baseDir).exists());
+                put("basedir", baseDir);
             }};
 
             readerFilter.filter((MavenReaderFilterRequest) any);
@@ -166,14 +171,15 @@ public class DockerComposeConfigHandlerTest {
         System.err.println(">>>> " + relativeBindString);
 
         // A regex that matches both windows platform paths and unix style paths:
-        // C:\Users\foo\Documents\workspaces\docker-maven-plugin\docker-maven-plugin\target\test-classes\compose\version:/tmp/version
+        // C:\Users\foo\Documents\workspaces\docker-maven-plugin\target\test-classes\compose\version:/tmp/version
         // and
         // /Users/foo/workspaces/docker-maven-plugin/target/test-classes/compose/version:/tmp/version
 
         String regex = "^([A-Z]|/).*compose[\\\\|/]version:.*";
 
         assertTrue(relativeBindString.matches(regex));
-        assertTrue(new File(relativeBindString.split(":")[0]).exists());
+        File file = new File(relativeBindString.split(":")[0]);
+        assertTrue(file + " does not exist!", file.exists());
     }
 
     protected void validateEnv(Map<String, String> env) {
@@ -188,7 +194,7 @@ public class DockerComposeConfigHandlerTest {
 
     @Test
     public void testRegex() throws Exception {
-        String toMatch = "C:\\Users\\khanson5\\Documents\\GitHub\\docker-maven-plugin-karen\\docker-maven-plugin-karen\\target\\test-classes\\compose\\version:/tmp/version";
+        String toMatch = "C:\\Users\\khanson5\\Documents\\GitHub\\docker-maven-plugin-karen\\target\\test-classes\\compose\\version:/tmp/version";
         assertTrue(toMatch.matches("^([A-Z]|/).*compose[\\\\|/]version:.*"));
     }
 }
