@@ -271,9 +271,12 @@ public class VolumeBindingUtil {
     static boolean isRelativePath(String candidatePath) {
 
         // java.io.File considers Windows paths to be absolute _only_ if they start with a drive letter.  That is,
-        // a Windows path '\foo\bar\baz' is _not_ absolute.  This block differs from java.io.File in that it considers
-        // Windows paths to be absolute if they begin with the file separator or a drive letter
-        if (candidatePath.startsWith(RUNTIME_SEP) || WINDOWS_DRIVE_PATTERN.matcher(candidatePath).matches()) {
+        // a Windows path '\foo\bar\baz' is _not_ considered absolute by File#isAbsolute.  This block differs from
+        // java.io.File in that it considers Windows paths to be absolute if they begin with the file separator _or_ a
+        // drive letter
+        if (candidatePath.startsWith(UNIX_SEP) ||
+                candidatePath.startsWith(WINDOWS_SEP) ||
+                WINDOWS_DRIVE_PATTERN.matcher(candidatePath).matches()) {
             return false;
         }
 
